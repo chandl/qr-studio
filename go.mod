@@ -1,6 +1,6 @@
 module github.com/chandl/qrcode
 
-go 1.27.1
+go 1.27.0
 
 require (
 	github.com/yeqown/go-qrcode/v2 v2.3.0
