@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>QR Studio — QR code generator</title>
-<meta name="description" content="Generate SVG, PNG, and JPEG QR codes with custom colors, shapes, and logos.">
+<meta name="description" content="Generate SVG, PNG, and JPEG QR codes with custom colors and shapes.">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%234f46e5'/%3E%3Crect x='6' y='6' width='8' height='8' rx='1.5' fill='white'/%3E%3Crect x='18' y='6' width='8' height='8' rx='1.5' fill='white'/%3E%3Crect x='6' y='18' width='8' height='8' rx='1.5' fill='white'/%3E%3Crect x='18' y='18' width='3' height='3' fill='white'/%3E%3Crect x='23' y='18' width='3' height='3' fill='white'/%3E%3Crect x='18' y='23' width='3' height='3' fill='white'/%3E%3C/svg%3E">
 <style>
   :root {
@@ -311,54 +311,6 @@
     flex-shrink: 0;
   }
 
-  .dropzone {
-    border: 1.5px dashed var(--border);
-    border-radius: var(--radius-sm);
-    padding: 1.1rem;
-    text-align: center;
-    cursor: pointer;
-    background: var(--surface-2);
-    transition: border-color 0.12s ease, background 0.12s ease;
-  }
-  .dropzone:hover, .dropzone.drag { border-color: var(--accent); background: var(--accent-soft); }
-  .dropzone p { margin: 0.35rem 0 0; font-size: 0.8rem; color: var(--text-muted); }
-  .dropzone svg { width: 22px; height: 22px; color: var(--text-faint); }
-
-  .logo-preview {
-    display: flex;
-    align-items: center;
-    gap: 0.75rem;
-    padding: 0.6rem 0.75rem;
-    border: 1px solid var(--border);
-    border-radius: var(--radius-sm);
-    background: var(--surface-2);
-  }
-  .logo-preview img {
-    width: 32px; height: 32px;
-    border-radius: 6px;
-    object-fit: cover;
-    border: 1px solid var(--border);
-    background: #fff;
-  }
-  .logo-preview .name {
-    flex: 1;
-    font-size: 0.82rem;
-    color: var(--text-muted);
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-  .logo-preview button {
-    border: none;
-    background: none;
-    color: var(--text-faint);
-    cursor: pointer;
-    font-size: 1rem;
-    line-height: 1;
-    padding: 0.2rem;
-  }
-  .logo-preview button:hover { color: var(--danger); }
-
   /* Preview column */
   .preview-col { position: sticky; top: 1.5rem; }
 
@@ -629,25 +581,6 @@
         </div>
       </div>
 
-      <div class="card">
-        <div class="card-header">
-          <h2>Logo</h2>
-          <span class="hint">optional</span>
-        </div>
-        <div class="card-body">
-          <div id="dropzone" class="dropzone">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M12 16V4m0 0L7 9m5-5l5 5" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-            <p>Drop a PNG/JPEG or click to upload</p>
-          </div>
-          <input type="file" id="logo-input" accept="image/png,image/jpeg" hidden>
-          <div class="logo-preview" id="logo-preview" style="display:none; margin-top: 0.75rem;">
-            <img id="logo-thumb" alt="logo preview">
-            <span class="name" id="logo-name"></span>
-            <button type="button" id="logo-remove" title="Remove logo">✕</button>
-          </div>
-          <div class="field-hint">Placed at center with a clear zone. High error correction (Q/H) is recommended so the logo doesn't hurt scanning — switching one on for you when a logo is added.</div>
-        </div>
-      </div>
     </div>
 
     <div class="preview-col">
@@ -697,8 +630,7 @@
       QR Studio is an API for turning any URL, string, or blob of text into a QR code — for embedding
       in an app, printing on packaging or signage, or generating one-off codes from a script or CI
       pipeline. Point an <code>&lt;img&gt;</code> tag, a backend job, or a build step at
-      <code>GET /qr</code> and get back an image; every option above — colors, shape, error correction,
-      a logo — is just part of that same request. Output is fully deterministic per parameter set, so
+      <code>GET /qr</code> and get back an image; every option above — colors, shape, error correction — is just part of that same request. Output is fully deterministic per parameter set, so
       <code>GET /qr</code> responses are cached for a year at the edge.
     </p>
   </footer>
@@ -716,14 +648,12 @@
     color: "#000000",
     bgcolor: "#ffffff",
     shape: "square",
-    logoDataUrl: null,
-    logoName: null,
   };
 
   const eclHints = {
     L: "Recovers from ~7% damage. Smallest code for a given size.",
     M: "Recovers from ~15% damage. Good default.",
-    Q: "Recovers from ~25% damage. Recommended with logos.",
+    Q: "Recovers from ~25% damage.",
     H: "Recovers from ~30% damage. Best for damaged or printed codes.",
   };
 
@@ -784,59 +714,6 @@
   wireColor("color", "color-hex", "color");
   wireColor("bgcolor", "bgcolor-hex", "bgcolor");
 
-  // ---- logo upload ----
-  const dropzone = $("dropzone");
-  const logoInput = $("logo-input");
-  const logoPreview = $("logo-preview");
-
-  dropzone.addEventListener("click", () => logoInput.click());
-  dropzone.addEventListener("dragover", (e) => { e.preventDefault(); dropzone.classList.add("drag"); });
-  dropzone.addEventListener("dragleave", () => dropzone.classList.remove("drag"));
-  dropzone.addEventListener("drop", (e) => {
-    e.preventDefault();
-    dropzone.classList.remove("drag");
-    if (e.dataTransfer.files[0]) handleLogoFile(e.dataTransfer.files[0]);
-  });
-  logoInput.addEventListener("change", () => {
-    if (logoInput.files[0]) handleLogoFile(logoInput.files[0]);
-  });
-
-  function handleLogoFile(file) {
-    if (!/^image\/(png|jpeg)$/.test(file.type)) {
-      showError("Logo must be a PNG or JPEG image.");
-      return;
-    }
-    if (file.size > 2 * 1024 * 1024) {
-      showError("Logo must be 2MiB or smaller.");
-      return;
-    }
-    const reader = new FileReader();
-    reader.onload = () => {
-      state.logoDataUrl = reader.result;
-      state.logoName = file.name;
-      $("logo-thumb").src = reader.result;
-      $("logo-name").textContent = file.name;
-      logoPreview.style.display = "flex";
-      dropzone.style.display = "none";
-      if (state.ecl === "L" || state.ecl === "M") {
-        state.ecl = "Q";
-        [...$("ecl-seg").children].forEach((c) => c.setAttribute("aria-pressed", c.dataset.value === "Q" ? "true" : "false"));
-        $("ecl-hint").textContent = eclHints.Q;
-      }
-      scheduleRefresh();
-    };
-    reader.readAsDataURL(file);
-  }
-
-  $("logo-remove").addEventListener("click", () => {
-    state.logoDataUrl = null;
-    state.logoName = null;
-    logoInput.value = "";
-    logoPreview.style.display = "none";
-    dropzone.style.display = "block";
-    scheduleRefresh();
-  });
-
   // ---- request building ----
   function buildParams() {
     return {
@@ -857,7 +734,7 @@
   }
 
   function usesPost() {
-    return !!state.logoDataUrl || state.data.length > 2000;
+    return state.data.length > 2000;
   }
 
   // ---- banners ----
@@ -876,9 +753,9 @@
   function updateSnippets(finalGetUrl) {
     const origin = window.location.origin;
     if (usesPost()) {
-      const body = { ...buildParams(), logo: state.logoDataUrl ? "data:image/…;base64,…" : undefined };
-      $("snippet-url").textContent = "Not available: this request uses POST (logo attached or data exceeds 2,000 characters), so it has no shareable GET URL.";
-      $("snippet-html").textContent = "Not available for POST-only requests. Remove the logo or shorten the data to get an embeddable <img> URL.";
+      const body = buildParams();
+      $("snippet-url").textContent = "Not available: this request uses POST (data exceeds 2,000 characters), so it has no shareable GET URL.";
+      $("snippet-html").textContent = "Not available for POST-only requests. Shorten the data to get an embeddable <img> URL.";
       $("snippet-curl").textContent =
 `curl -X POST ${origin}/qr \\
   -H "Content-Type: application/json" \\
@@ -907,7 +784,7 @@
 
   $("copy-link-btn").addEventListener("click", (e) => {
     const url = usesPost() ? "" : window.location.origin + buildGetURL();
-    if (!url) { showError("This request needs POST (logo or long data) — no shareable link. See the cURL tab instead."); return; }
+    if (!url) { showError("This request needs POST (long data) — no shareable link. See the cURL tab instead."); return; }
     copyToClipboard(url, e.target.closest("button"));
   });
 
@@ -942,7 +819,7 @@
       fetchOpts = {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...buildParams(), logo: state.logoDataUrl || undefined }),
+        body: JSON.stringify(buildParams()),
       };
     } else {
       url = buildGetURL();

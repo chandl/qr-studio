@@ -2,9 +2,7 @@ package qr
 
 import (
 	"bytes"
-	"encoding/base64"
 	"fmt"
-	"net/http"
 
 	qrcode "github.com/yeqown/go-qrcode/v2"
 )
@@ -19,12 +17,7 @@ type svgOptions struct {
 	FgColor    string
 	BgColor    string
 	Shape      Shape
-	Logo       []byte
 }
-
-// logoSizeMultiplier mirrors the raster writer's default: the logo may be at
-// most 1/N of the QR code's width/height.
-const logoSizeMultiplier = 5
 
 func renderSVG(qrc *qrcode.QRCode, opts svgOptions) ([]byte, error) {
 	dimension := qrc.Dimension()
@@ -36,35 +29,9 @@ func renderSVG(qrc *qrcode.QRCode, opts svgOptions) ([]byte, error) {
 		side, side, side, side)
 	fmt.Fprintf(&buf, `<rect x="0" y="0" width="%d" height="%d" fill="%s"/>`, side, side, opts.BgColor)
 
-	var logoLeft, logoTop, logoWidth, logoHeight int
-	hasLogo := len(opts.Logo) > 0
-	if hasLogo {
-		logoWidth = side / logoSizeMultiplier
-		logoHeight = logoWidth
-		logoLeft = (side - logoWidth) / 2
-		logoTop = (side - logoHeight) / 2
-	}
-
-	err := qrc.Save(&svgWriter{
-		buf:  &buf,
-		opts: opts,
-		side: side,
-		skip: func(px, py int) bool {
-			if !hasLogo {
-				return false
-			}
-			return px+bw > logoLeft && px < logoLeft+logoWidth &&
-				py+bw > logoTop && py < logoTop+logoHeight
-		},
-	})
+	err := qrc.Save(&svgWriter{buf: &buf, opts: opts, side: side})
 	if err != nil {
 		return nil, err
-	}
-
-	if hasLogo {
-		contentType := http.DetectContentType(opts.Logo)
-		fmt.Fprintf(&buf, `<image x="%d" y="%d" width="%d" height="%d" href="data:%s;base64,%s"/>`,
-			logoLeft, logoTop, logoWidth, logoHeight, contentType, base64.StdEncoding.EncodeToString(opts.Logo))
 	}
 
 	buf.WriteString(`</svg>`)
@@ -77,7 +44,6 @@ type svgWriter struct {
 	buf  *bytes.Buffer
 	opts svgOptions
 	side int
-	skip func(px, py int) bool
 }
 
 func (w *svgWriter) Close() error { return nil }
@@ -92,10 +58,6 @@ func (w *svgWriter) Write(mat qrcode.Matrix) error {
 		}
 
 		px, py := x*bw+border, y*bw+border
-		if v.Type() != qrcode.QRType_FINDER && w.skip(px, py) {
-			return
-		}
-
 		writeModule(w.buf, w.opts.Shape, px, py, bw, w.opts.FgColor)
 	})
 

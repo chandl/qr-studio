@@ -69,9 +69,6 @@ const (
 
 	// DefaultBlockWidth is used when no size is requested.
 	defaultBlockWidth = 8
-
-	// MaxLogoBytes bounds the size of a decoded logo image.
-	MaxLogoBytes = 2 << 20 // 2MiB
 )
 
 var hexColorRe = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
@@ -85,7 +82,6 @@ type Options struct {
 	Color   string // foreground hex color, e.g. "#000000"
 	BgColor string // background hex color, e.g. "#ffffff"
 	Shape   Shape
-	Logo    []byte // optional decoded logo image (PNG or JPEG bytes)
 }
 
 // ValidationError is returned for bad input and should map to an HTTP 4xx.
@@ -161,10 +157,6 @@ func Generate(opts Options) (*Result, error) {
 		return nil, invalid("size must be 4096 or smaller")
 	}
 
-	if len(opts.Logo) > MaxLogoBytes {
-		return nil, invalid("logo image exceeds maximum size of %d bytes", MaxLogoBytes)
-	}
-
 	qrc, err := qrcode.NewWith(opts.Data, eclOpt)
 	if err != nil {
 		return nil, invalid("data cannot be encoded: %v", err)
@@ -186,7 +178,6 @@ func Generate(opts Options) (*Result, error) {
 			FgColor:    fgHex,
 			BgColor:    bgHex,
 			Shape:      shape,
-			Logo:       opts.Logo,
 		})
 	default:
 		imgBytes, err = renderRaster(qrc, rasterOptions{
@@ -196,7 +187,6 @@ func Generate(opts Options) (*Result, error) {
 			FgColor:    fgColor,
 			BgColor:    bgColor,
 			Shape:      shape,
-			Logo:       opts.Logo,
 		})
 	}
 	if err != nil {
@@ -260,7 +250,6 @@ type rasterOptions struct {
 	FgColor    color.RGBA
 	BgColor    color.RGBA
 	Shape      Shape
-	Logo       []byte
 }
 
 func renderRaster(qrc *qrcode.QRCode, opts rasterOptions) ([]byte, error) {
@@ -282,14 +271,6 @@ func renderRaster(qrc *qrcode.QRCode, opts rasterOptions) ([]byte, error) {
 		imgOpts = append(imgOpts, standard.WithCustomShape(s))
 	} else if opts.Shape == ShapeCircle {
 		imgOpts = append(imgOpts, standard.WithCircleShape())
-	}
-
-	if len(opts.Logo) > 0 {
-		img, err := decodeLogo(opts.Logo)
-		if err != nil {
-			return nil, err
-		}
-		imgOpts = append(imgOpts, standard.WithLogoImage(img), standard.WithLogoSafeZone())
 	}
 
 	var buf bytes.Buffer

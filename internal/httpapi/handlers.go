@@ -21,7 +21,7 @@ import (
 const maxGETDataLen = 2000
 
 // maxPOSTBodyBytes bounds the JSON request body for POST /qr.
-const maxPOSTBodyBytes = 1 << 20 // 1MiB, generous for base64 logo payloads
+const maxPOSTBodyBytes = 1 << 20 // 1MiB
 
 // cacheImmutableYear is applied to GET /qr responses: output is fully
 // deterministic per parameter set, so it is safe to cache forever.
@@ -80,7 +80,6 @@ type postQRRequest struct {
 	Color   string `json:"color"`
 	BgColor string `json:"bgcolor"`
 	Shape   string `json:"shape"`
-	Logo    string `json:"logo"`
 }
 
 func handlePostQR(w http.ResponseWriter, r *http.Request) {
@@ -100,12 +99,6 @@ func handlePostQR(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	logoBytes, err := qr.DecodeLogoParam(req.Logo)
-	if err != nil {
-		writeGenErr(w, err)
-		return
-	}
-
 	opts := qr.Options{
 		Data:    req.Data,
 		Format:  qr.Format(req.Format),
@@ -114,7 +107,6 @@ func handlePostQR(w http.ResponseWriter, r *http.Request) {
 		Color:   req.Color,
 		BgColor: req.BgColor,
 		Shape:   qr.Shape(req.Shape),
-		Logo:    logoBytes,
 	}
 
 	result, err := qr.Generate(opts)
@@ -149,14 +141,6 @@ func optionsFromQuery(q url.Values) (qr.Options, error) {
 			return opts, &qr.ValidationError{Msg: "size must be an integer"}
 		}
 		opts.Size = size
-	}
-
-	if logo := get("logo"); logo != "" {
-		logoBytes, err := qr.DecodeLogoParam(logo)
-		if err != nil {
-			return opts, err
-		}
-		opts.Logo = logoBytes
 	}
 
 	return opts, nil
