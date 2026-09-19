@@ -764,7 +764,7 @@
     } else {
       const full = origin + finalGetUrl;
       $("snippet-url").textContent = full;
-      $("snippet-html").textContent = `<img src="${finalGetUrl}" alt="QR code" width="${state.size}" height="${state.size}">`;
+      $("snippet-html").textContent = `<img src="${full}" alt="QR code" width="${state.size}" height="${state.size}">`;
       $("snippet-curl").textContent = `curl "${full}" -o qrcode.${state.format}`;
     }
   }
