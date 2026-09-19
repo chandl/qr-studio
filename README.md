@@ -6,7 +6,7 @@ directly in an `<img src>` tag, with CDN-friendly cache headers.
 
 Rendering is built on [`yeqown/go-qrcode/v2`](https://github.com/yeqown/go-qrcode)
 (MIT licensed) for matrix generation, encoding, masking, and raster (PNG/JPEG)
-drawing — including logo overlay and custom module shapes. There is no SVG
+drawing — including custom module shapes. There is no SVG
 writer in that library, so SVG output is produced by a small hand-rolled
 writer in [`internal/qr/svg.go`](internal/qr/svg.go) that walks the same
 QR matrix.
@@ -41,7 +41,7 @@ The primary endpoint — cache-friendly and meant to be used directly as an
 | `color`   | `#000000` | Foreground hex color |
 | `bgcolor` | `#ffffff` | Background hex color |
 | `shape`   | `square` | Module shape: `square` \| `rounded` \| `circle` \| `diamond` |
-| `logo`    | *(none)* | A base64-encoded image (or `data:image/png;base64,...` URI) to overlay at the center. See **Logos** below. |
+| `margin`  | `2`     | Quiet zone (border) width in modules, `0`–`10`. The QR spec recommends 4; smaller values look tighter but may scan less reliably. |
 
 Returns raw image bytes with the correct `Content-Type` and
 `Cache-Control: public, max-age=31536000, immutable` — output is fully
@@ -67,7 +67,7 @@ JSON body:
   "color": "#000000",
   "bgcolor": "#ffffff",
   "shape": "circle",
-  "logo": "data:image/png;base64,…"
+  "margin": 2
 }
 ```
 
@@ -75,23 +75,13 @@ Response is the **raw image bytes** (not JSON/base64), same as `GET`. POST
 responses are not cache-controlled — POST isn't cacheable, and long,
 one-off payloads are unlikely to repeat.
 
-### Logos
-
-`logo` takes inline image data (base64, optionally as a `data:` URI) rather
-than a URL. The service never fetches remote URLs on your behalf — accepting
-one on a public endpoint would mean making outbound requests to
-attacker-supplied hosts (SSRF). Logos are capped at 2MiB decoded and must be
-PNG or JPEG; they're placed at the QR code's center with a small clear zone
-around them, and a high error-correction level (`Q` or `H`) is recommended
-so damaged/obscured modules still decode.
-
 ### `GET /healthz`
 
 Returns `200 ok`. Used by the Docker healthcheck.
 
 ## Non-functional behavior
 
-- **Quiet zone**: a standard 4-module-wide quiet zone is enforced on every
+- **Quiet zone**: a quiet zone (2 modules by default, configurable via `margin`) is enforced on every
   output (raster and SVG) regardless of requested size, for scan
   reliability.
 - **Contrast check**: `GET`/`POST /qr` responses carry `X-QR-Contrast-Warning`
@@ -121,7 +111,7 @@ go test ./...
 
 Covers QR generation across all format/shape/ECL combinations, parameter
 validation (bad colors, oversized data, invalid enums), contrast-warning
-detection, and the HTTP handlers (including logo upload and body-size
+detection, and the HTTP handlers (including body-size
 limits).
 
 ## Deployment

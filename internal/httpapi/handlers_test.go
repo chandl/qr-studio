@@ -1,12 +1,7 @@
 package httpapi
 
 import (
-	"bytes"
-	"encoding/base64"
 	"encoding/json"
-	"image"
-	"image/color"
-	"image/png"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -123,62 +118,6 @@ func TestPostQR_Success(t *testing.T) {
 	}
 }
 
-func TestPostQR_WithLogo(t *testing.T) {
-	logoImg := image.NewRGBA(image.Rect(0, 0, 4, 4))
-	for y := 0; y < 4; y++ {
-		for x := 0; x < 4; x++ {
-			logoImg.Set(x, y, color.RGBA{R: 255, A: 255})
-		}
-	}
-	var buf bytes.Buffer
-	if err := png.Encode(&buf, logoImg); err != nil {
-		t.Fatal(err)
-	}
-	logoB64 := base64.StdEncoding.EncodeToString(buf.Bytes())
-
-	reqBody, err := json.Marshal(map[string]string{
-		"data": "https://example.com",
-		"logo": "data:image/png;base64," + logoB64,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	mux := NewMux()
-	req := httptest.NewRequest(http.MethodPost, "/qr", bytes.NewReader(reqBody))
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
-	}
-	if _, _, err := image.Decode(bytes.NewReader(rec.Body.Bytes())); err != nil {
-		t.Errorf("could not decode resulting PNG: %v", err)
-	}
-}
-
-func TestPostQR_CorruptLogoIsBadRequest(t *testing.T) {
-	// A logo that is valid base64 but not a decodable PNG/JPEG must surface
-	// as a 400 (bad input), not a 500 — this failure only shows up once the
-	// image bytes reach the raster decoder deep inside qr.Generate, so it's
-	// a regression test for error-type unwrapping across that boundary.
-	mux := NewMux()
-	reqBody, err := json.Marshal(map[string]any{
-		"data": "https://example.com",
-		"logo": "data:image/png;base64," + base64.StdEncoding.EncodeToString([]byte("not a real png")),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	req := httptest.NewRequest(http.MethodPost, "/qr", bytes.NewReader(reqBody))
-	rec := httptest.NewRecorder()
-	mux.ServeHTTP(rec, req)
-
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("status = %d, want 400, body = %s", rec.Code, rec.Body.String())
-	}
-}
-
 func TestPostQR_InvalidJSON(t *testing.T) {
 	mux := NewMux()
 	req := httptest.NewRequest(http.MethodPost, "/qr", strings.NewReader("{not json"))
@@ -211,5 +150,43 @@ func TestHealthz(t *testing.T) {
 
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d", rec.Code)
+	}
+}
+
+func TestGetQR_Margin(t *testing.T) {
+	mux := NewMux()
+	for _, tc := range []struct {
+		query string
+		want  int
+	}{
+		{"margin=0", http.StatusOK},
+		{"margin=4", http.StatusOK},
+		{"margin=11", http.StatusBadRequest},
+		{"margin=-1", http.StatusBadRequest},
+		{"margin=abc", http.StatusBadRequest},
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/qr?data=hello&"+tc.query, nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code != tc.want {
+			t.Errorf("%s: status = %d, want %d", tc.query, rec.Code, tc.want)
+		}
+	}
+}
+
+func TestPostQR_Margin(t *testing.T) {
+	mux := NewMux()
+	req := httptest.NewRequest(http.MethodPost, "/qr", strings.NewReader(`{"data":"hello","margin":0}`))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/qr", strings.NewReader(`{"data":"hello","margin":99}`))
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rec.Code)
 	}
 }

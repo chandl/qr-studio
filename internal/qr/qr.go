@@ -57,9 +57,13 @@ const (
 	ECLHighest ECL = "H"
 )
 
-// quietZoneModules is the standard QR code quiet zone width, in modules,
-// enforced on every raster and SVG output regardless of requested size.
-const quietZoneModules = 4
+// DefaultMargin is the quiet zone width, in modules, used when none is
+// requested. The QR spec recommends 4, but 2 scans reliably on modern readers
+// and looks far less padded. MaxMargin bounds what callers may request.
+const (
+	DefaultMargin = 2
+	MaxMargin     = 10
+)
 
 const (
 	// MinBlockWidth/MaxBlockWidth bound the per-module pixel size derived
@@ -69,9 +73,6 @@ const (
 
 	// DefaultBlockWidth is used when no size is requested.
 	defaultBlockWidth = 8
-
-	// MaxLogoBytes bounds the size of a decoded logo image.
-	MaxLogoBytes = 2 << 20 // 2MiB
 )
 
 var hexColorRe = regexp.MustCompile(`^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{6})$`)
@@ -85,7 +86,7 @@ type Options struct {
 	Color   string // foreground hex color, e.g. "#000000"
 	BgColor string // background hex color, e.g. "#ffffff"
 	Shape   Shape
-	Logo    []byte // optional decoded logo image (PNG or JPEG bytes)
+	Margin  *int // quiet zone width in modules; nil = DefaultMargin
 }
 
 // ValidationError is returned for bad input and should map to an HTTP 4xx.
@@ -161,8 +162,12 @@ func Generate(opts Options) (*Result, error) {
 		return nil, invalid("size must be 4096 or smaller")
 	}
 
-	if len(opts.Logo) > MaxLogoBytes {
-		return nil, invalid("logo image exceeds maximum size of %d bytes", MaxLogoBytes)
+	margin := DefaultMargin
+	if opts.Margin != nil {
+		margin = *opts.Margin
+	}
+	if margin < 0 || margin > MaxMargin {
+		return nil, invalid("margin must be between 0 and %d", MaxMargin)
 	}
 
 	qrc, err := qrcode.NewWith(opts.Data, eclOpt)
@@ -171,8 +176,8 @@ func Generate(opts Options) (*Result, error) {
 	}
 
 	dimension := qrc.Dimension()
-	blockWidth := blockWidthFor(opts.Size, dimension)
-	border := blockWidth * quietZoneModules
+	blockWidth := blockWidthFor(opts.Size, dimension, margin)
+	border := blockWidth * margin
 
 	fgColor := parseHexColor(fgHex)
 	bgColor := parseHexColor(bgHex)
@@ -186,7 +191,6 @@ func Generate(opts Options) (*Result, error) {
 			FgColor:    fgHex,
 			BgColor:    bgHex,
 			Shape:      shape,
-			Logo:       opts.Logo,
 		})
 	default:
 		imgBytes, err = renderRaster(qrc, rasterOptions{
@@ -196,7 +200,6 @@ func Generate(opts Options) (*Result, error) {
 			FgColor:    fgColor,
 			BgColor:    bgColor,
 			Shape:      shape,
-			Logo:       opts.Logo,
 		})
 	}
 	if err != nil {
@@ -225,12 +228,12 @@ func eclToLibrary(e ECL) (qrcode.EncodeOption, error) {
 	}
 }
 
-func blockWidthFor(size, dimension int) int {
+func blockWidthFor(size, dimension, margin int) int {
 	if size <= 0 || dimension <= 0 {
 		return defaultBlockWidth
 	}
 
-	bw := size / (dimension + 2*quietZoneModules)
+	bw := size / (dimension + 2*margin)
 	if bw < minBlockWidth {
 		bw = minBlockWidth
 	}
@@ -260,7 +263,6 @@ type rasterOptions struct {
 	FgColor    color.RGBA
 	BgColor    color.RGBA
 	Shape      Shape
-	Logo       []byte
 }
 
 func renderRaster(qrc *qrcode.QRCode, opts rasterOptions) ([]byte, error) {
@@ -282,14 +284,6 @@ func renderRaster(qrc *qrcode.QRCode, opts rasterOptions) ([]byte, error) {
 		imgOpts = append(imgOpts, standard.WithCustomShape(s))
 	} else if opts.Shape == ShapeCircle {
 		imgOpts = append(imgOpts, standard.WithCircleShape())
-	}
-
-	if len(opts.Logo) > 0 {
-		img, err := decodeLogo(opts.Logo)
-		if err != nil {
-			return nil, err
-		}
-		imgOpts = append(imgOpts, standard.WithLogoImage(img), standard.WithLogoSafeZone())
 	}
 
 	var buf bytes.Buffer
