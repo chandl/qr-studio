@@ -1,0 +1,7 @@
+services:
+  qrcode:
+    image: ghcr.io/chandl/qrcode:latest
+    build: .
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
