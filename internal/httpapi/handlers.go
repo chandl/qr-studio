@@ -20,8 +20,9 @@ import (
 // have no such constraint.
 const maxGETDataLen = 2000
 
-// maxPOSTBodyBytes bounds the JSON request body for POST /qr.
-const maxPOSTBodyBytes = 1 << 20 // 1MiB
+// maxPOSTBodyBytes bounds the JSON request body for POST /qr. A QR code holds
+// at most ~3KB of data, so even with worst-case JSON escaping this is generous.
+const maxPOSTBodyBytes = 64 << 10 // 64KiB
 
 // cacheImmutableYear is applied to GET /qr responses: output is fully
 // deterministic per parameter set, so it is safe to cache forever.
