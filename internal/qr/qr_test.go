@@ -87,6 +87,8 @@ func TestGenerate_Validation(t *testing.T) {
 		{"bad shape", Options{Data: "x", Shape: "hexagon"}},
 		{"negative size", Options{Data: "x", Size: -1}},
 		{"oversized size", Options{Data: "x", Size: 5000}},
+		{"negative margin", Options{Data: "x", Margin: intPtr(-1)}},
+		{"oversized margin", Options{Data: "x", Margin: intPtr(MaxMargin + 1)}},
 		{"data exceeds capacity", Options{Data: strings.Repeat("a", 5000), ECL: ECLHighest}},
 	}
 
@@ -118,5 +120,26 @@ func TestLowContrast(t *testing.T) {
 	}
 	if !LowContrast("#888888", "#999999") {
 		t.Error("similar grays should warn")
+	}
+}
+
+func intPtr(i int) *int { return &i }
+
+func TestGenerate_MarginAffectsSVGSize(t *testing.T) {
+	side := func(m *int) string {
+		res, err := Generate(Options{Data: "hello", Format: FormatSVG, Margin: m})
+		if err != nil {
+			t.Fatalf("Generate() error = %v", err)
+		}
+		body := string(res.Bytes)
+		i := strings.Index(body, `width="`)
+		return body[i : i+strings.Index(body[i+7:], `"`)+8]
+	}
+	def, zero, four := side(nil), side(intPtr(0)), side(intPtr(4))
+	if def != side(intPtr(DefaultMargin)) {
+		t.Errorf("nil margin = %s, want same as default margin", def)
+	}
+	if zero == def || four == def {
+		t.Errorf("margin should change output size: 0=%s default=%s 4=%s", zero, def, four)
 	}
 }

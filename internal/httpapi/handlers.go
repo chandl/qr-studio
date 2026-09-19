@@ -80,6 +80,7 @@ type postQRRequest struct {
 	Color   string `json:"color"`
 	BgColor string `json:"bgcolor"`
 	Shape   string `json:"shape"`
+	Margin  *int   `json:"margin"`
 }
 
 func handlePostQR(w http.ResponseWriter, r *http.Request) {
@@ -107,6 +108,7 @@ func handlePostQR(w http.ResponseWriter, r *http.Request) {
 		Color:   req.Color,
 		BgColor: req.BgColor,
 		Shape:   qr.Shape(req.Shape),
+		Margin:  req.Margin,
 	}
 
 	result, err := qr.Generate(opts)
@@ -141,6 +143,14 @@ func optionsFromQuery(q url.Values) (qr.Options, error) {
 			return opts, &qr.ValidationError{Msg: "size must be an integer"}
 		}
 		opts.Size = size
+	}
+
+	if m := get("margin"); m != "" {
+		margin, err := strconv.Atoi(m)
+		if err != nil {
+			return opts, &qr.ValidationError{Msg: "margin must be an integer"}
+		}
+		opts.Margin = &margin
 	}
 
 	return opts, nil

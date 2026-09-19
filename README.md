@@ -41,6 +41,7 @@ The primary endpoint — cache-friendly and meant to be used directly as an
 | `color`   | `#000000` | Foreground hex color |
 | `bgcolor` | `#ffffff` | Background hex color |
 | `shape`   | `square` | Module shape: `square` \| `rounded` \| `circle` \| `diamond` |
+| `margin`  | `2`     | Quiet zone (border) width in modules, `0`–`10`. The QR spec recommends 4; smaller values look tighter but may scan less reliably. |
 
 Returns raw image bytes with the correct `Content-Type` and
 `Cache-Control: public, max-age=31536000, immutable` — output is fully
@@ -65,7 +66,8 @@ JSON body:
   "ecl": "M",
   "color": "#000000",
   "bgcolor": "#ffffff",
-  "shape": "circle"
+  "shape": "circle",
+  "margin": 2
 }
 ```
 
@@ -79,7 +81,7 @@ Returns `200 ok`. Used by the Docker healthcheck.
 
 ## Non-functional behavior
 
-- **Quiet zone**: a standard 4-module-wide quiet zone is enforced on every
+- **Quiet zone**: a quiet zone (2 modules by default, configurable via `margin`) is enforced on every
   output (raster and SVG) regardless of requested size, for scan
   reliability.
 - **Contrast check**: `GET`/`POST /qr` responses carry `X-QR-Contrast-Warning`

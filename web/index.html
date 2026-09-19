@@ -532,6 +532,15 @@
               <span class="slider-value" id="size-value">400 px</span>
             </div>
           </div>
+
+          <div class="field">
+            <label for="margin">Margin</label>
+            <div class="slider-row">
+              <input type="range" id="margin" min="0" max="10" step="1" value="2">
+              <span class="slider-value" id="margin-value">2 modules</span>
+            </div>
+            <div class="field-hint">Border around the code. The QR spec recommends 4; smaller looks tighter but may scan less reliably.</div>
+          </div>
         </div>
       </div>
 
@@ -645,6 +654,7 @@
     format: "png",
     ecl: "M",
     size: 400,
+    margin: 2,
     color: "#000000",
     bgcolor: "#ffffff",
     shape: "square",
@@ -693,6 +703,13 @@
     scheduleRefresh();
   });
 
+  // ---- margin slider ----
+  $("margin").addEventListener("input", (e) => {
+    state.margin = parseInt(e.target.value, 10);
+    $("margin-value").textContent = state.margin + (state.margin === 1 ? " module" : " modules");
+    scheduleRefresh();
+  });
+
   // ---- color sync (picker <-> hex text) ----
   function wireColor(pickerId, hexId, key) {
     const picker = $(pickerId), hex = $(hexId);
@@ -721,6 +738,7 @@
       format: state.format,
       ecl: state.ecl,
       size: state.size,
+      margin: state.margin,
       color: state.color,
       bgcolor: state.bgcolor,
       shape: state.shape,
@@ -729,7 +747,7 @@
 
   function buildGetURL() {
     const p = buildParams();
-    const usp = new URLSearchParams({ ...p, size: String(p.size) });
+    const usp = new URLSearchParams({ ...p, size: String(p.size), margin: String(p.margin) });
     return "/qr?" + usp.toString();
   }
 

@@ -152,3 +152,41 @@ func TestHealthz(t *testing.T) {
 		t.Fatalf("status = %d", rec.Code)
 	}
 }
+
+func TestGetQR_Margin(t *testing.T) {
+	mux := NewMux()
+	for _, tc := range []struct {
+		query string
+		want  int
+	}{
+		{"margin=0", http.StatusOK},
+		{"margin=4", http.StatusOK},
+		{"margin=11", http.StatusBadRequest},
+		{"margin=-1", http.StatusBadRequest},
+		{"margin=abc", http.StatusBadRequest},
+	} {
+		req := httptest.NewRequest(http.MethodGet, "/qr?data=hello&"+tc.query, nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code != tc.want {
+			t.Errorf("%s: status = %d, want %d", tc.query, rec.Code, tc.want)
+		}
+	}
+}
+
+func TestPostQR_Margin(t *testing.T) {
+	mux := NewMux()
+	req := httptest.NewRequest(http.MethodPost, "/qr", strings.NewReader(`{"data":"hello","margin":0}`))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body = %s", rec.Code, rec.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/qr", strings.NewReader(`{"data":"hello","margin":99}`))
+	rec = httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Errorf("status = %d, want 400", rec.Code)
+	}
+}

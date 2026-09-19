@@ -57,9 +57,13 @@ const (
 	ECLHighest ECL = "H"
 )
 
-// quietZoneModules is the standard QR code quiet zone width, in modules,
-// enforced on every raster and SVG output regardless of requested size.
-const quietZoneModules = 4
+// DefaultMargin is the quiet zone width, in modules, used when none is
+// requested. The QR spec recommends 4, but 2 scans reliably on modern readers
+// and looks far less padded. MaxMargin bounds what callers may request.
+const (
+	DefaultMargin = 2
+	MaxMargin     = 10
+)
 
 const (
 	// MinBlockWidth/MaxBlockWidth bound the per-module pixel size derived
@@ -82,6 +86,7 @@ type Options struct {
 	Color   string // foreground hex color, e.g. "#000000"
 	BgColor string // background hex color, e.g. "#ffffff"
 	Shape   Shape
+	Margin  *int // quiet zone width in modules; nil = DefaultMargin
 }
 
 // ValidationError is returned for bad input and should map to an HTTP 4xx.
@@ -157,14 +162,22 @@ func Generate(opts Options) (*Result, error) {
 		return nil, invalid("size must be 4096 or smaller")
 	}
 
+	margin := DefaultMargin
+	if opts.Margin != nil {
+		margin = *opts.Margin
+	}
+	if margin < 0 || margin > MaxMargin {
+		return nil, invalid("margin must be between 0 and %d", MaxMargin)
+	}
+
 	qrc, err := qrcode.NewWith(opts.Data, eclOpt)
 	if err != nil {
 		return nil, invalid("data cannot be encoded: %v", err)
 	}
 
 	dimension := qrc.Dimension()
-	blockWidth := blockWidthFor(opts.Size, dimension)
-	border := blockWidth * quietZoneModules
+	blockWidth := blockWidthFor(opts.Size, dimension, margin)
+	border := blockWidth * margin
 
 	fgColor := parseHexColor(fgHex)
 	bgColor := parseHexColor(bgHex)
@@ -215,12 +228,12 @@ func eclToLibrary(e ECL) (qrcode.EncodeOption, error) {
 	}
 }
 
-func blockWidthFor(size, dimension int) int {
+func blockWidthFor(size, dimension, margin int) int {
 	if size <= 0 || dimension <= 0 {
 		return defaultBlockWidth
 	}
 
-	bw := size / (dimension + 2*quietZoneModules)
+	bw := size / (dimension + 2*margin)
 	if bw < minBlockWidth {
 		bw = minBlockWidth
 	}
