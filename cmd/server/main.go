@@ -27,6 +27,7 @@ func main() {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
 		_, _ = w.Write(indexHTML)
 	})
+	mux.Handle("GET /static/", web.StaticHandler())
 
 	srv := &http.Server{
 		Addr:              addr,
