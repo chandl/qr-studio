@@ -97,7 +97,7 @@ Returns `200 ok`. Used by the Docker healthcheck.
 cmd/server/          entrypoint, HTTP server wiring
 internal/qr/          QR generation/rendering (library wrapper, shapes, SVG writer, contrast check)
 internal/httpapi/      HTTP handlers for GET/POST /qr, param validation
-web/                   embedded single-page demo UI (go:embed)
+web/                   embedded demo UI (go:embed); static/ holds CSS, JS, self-hosted fonts
 ```
 
 The demo UI at `/` calls `GET /qr` directly with no separate backend logic —
